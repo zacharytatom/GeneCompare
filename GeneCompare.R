@@ -48,8 +48,6 @@ ui <- fluidPage(
                                                          All = "all"),
                                              selected = "head"),
                                 
-                                hr(),
-                                
                                 div(id = "fileinput"),
                                 
                                 div(id = "options",
@@ -86,7 +84,7 @@ ui <- fluidPage(
                                 
                                 radioButtons(inputId = "comparisonchoice",
                                              label = "Comparison Type",
-                                             choices = c(# Summary = "summary",
+                                             choices = c(Summary = "summary",
                                                          Intersection = "intersection",
                                                          Combination = "combination")),
                                 
@@ -116,6 +114,10 @@ ui <- fluidPage(
                                 h4("Comparison"),
                                 
                                 hr(),
+                                
+                                div(id = "summarydiv", tagList(
+                                    tableOutput("overlapsummary")
+                                )),
                                 
                                 div(id = "overlapdiv", tagList(
                                     verbatimTextOutput("overlapprint")
@@ -246,8 +248,27 @@ ui <- fluidPage(
                                 
                                 p("It was developed by Zachary Tatom at Virginia Commonwealth University under the guidance of Dr. Tim York, PhD."),
                                 
-                                p("Acknowledgments go to Dr. Roxanne Roberson-Nay, Dr. Dana Lapato, Eva Lancaster, and Hope Wolf, members of the VCU Data Science lab.")
-                            ),
+                                p("Acknowledgments go to Dr. Roxanne Roberson-Nay, Dr. Dana Lapato, Eva Lancaster, and Hope Wolf, members of the VCU Data Science lab."),
+                            
+                                hr(),
+                                
+                                # Link to Twitter
+                                actionButton(inputId = "github",
+                                             label = tagList(img(src = "logo_twitter.png"), "Zachary Tatom on Twitter"),
+                                             onclick = "window.open('https://twitter.com/zachary_tatom', '_blank')",
+                                             style = "width:100%;"),
+                                
+                                br(),
+                                
+                                br(),
+                                
+                                # Link to GitHub
+                                actionButton(inputId = "github",
+                                             label = tagList(img(src = "logo_github.png"), "GeneCompare on GitHub"),
+                                onclick = "window.open('https://github.com/zacharytatom/GeneCompare/', '_blank')",
+                                style = "width:100%;")
+                                
+                                ),
                             
                             mainPanel(
 
@@ -531,6 +552,26 @@ server <- function(session, input, output) {
         
     })
     
+    # Print out a summary of overlaps/intersections ----
+    output$overlapsummary <- renderTable({
+        
+        overlap.list <- lapply(overlaps(), function (x) x[!is.na(x)])
+        
+        listlength <- sapply(overlap.list, length)
+        
+        summarytibble <- tibble(Overlap = names(listlength),
+                                n = listlength)
+        
+        summarytibble <- arrange(summarytibble, by = n)
+        
+        totaltibble <- tibble(Overlap = "Combined",
+                              n = sum(summarytibble$n))
+        
+        summarytibble <- rbind(summarytibble, totaltibble)
+        
+        return(summarytibble)
+    })
+    
     # Print out the list of overlaps/intersections ----
     output$overlapprint <- renderPrint(
         
@@ -562,8 +603,10 @@ server <- function(session, input, output) {
         
     )
     
-    # Observer for which to show, overlaps or combination ----
+    # Observer for which to show: summary, overlaps, or combination ----
     observeEvent(input$comparisonchoice, {
+        
+        toggle(id = "summarydiv", condition = input$comparisonchoice == "summary")
         
         toggle(id = "overlapdiv", condition = input$comparisonchoice == "intersection")
         
@@ -800,6 +843,9 @@ server <- function(session, input, output) {
     
     # Create our citations list ----
     citations <- reactive({
+        # Note: the citations will differ if you download and run this in R Studio yourself.
+        # (It will include packages you have on your local machine.)  Restart your session
+        # before use or use the online version for accurate citations.
         
         # Get actively loaded packages ----
         packageids <- (.packages())
