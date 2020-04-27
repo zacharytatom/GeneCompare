@@ -1,0 +1,12 @@
+name: GeneCompare
+title: GeneCompare
+username:
+account: zachary-tatom
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2121814
+bundleId: 3073324
+url: https://zachary-tatom.shinyapps.io/GeneCompare/
+when: 1588014333.14107
+asMultiple: FALSE
+asStatic: FALSE
