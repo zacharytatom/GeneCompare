@@ -248,7 +248,7 @@ ui <- fluidPage(
                                 
                                 p("It was developed by Zachary Tatom at Virginia Commonwealth University under the guidance of Dr. Tim York, PhD."),
                                 
-                                p("Acknowledgments go to Dr. Roxanne Roberson-Nay, Dr. Dana Lapato, Eva Lancaster, and Hope Wolf, members of the VCU Data Science lab."),
+                                p("Acknowledgments go to Dr. Roxann Roberson-Nay, Dr. Dana Lapato, Eva Lancaster, and Hope Wolf, members of the VCU Data Science lab."),
                             
                                 hr(),
                                 
@@ -287,6 +287,12 @@ ui <- fluidPage(
 
 server <- function(session, input, output) {
     
+    # Enable file sizes up to 30 MB
+    options(shiny.maxRequestSize=30*1024^2)
+    
+    # Create a reactive to store input$files length for looping later on ----
+    len <- reactive(nrow(input$files))
+    
     # Create a file selector once files have been uploaded ----
     output$output.fileselector <- renderUI({
         
@@ -307,12 +313,12 @@ server <- function(session, input, output) {
         req(input$files)
         
         # Create an empty list to store tags in ----
-        optionslist <- vector(mode = "list", length = nrow(input$files))
+        optionslist <- vector(mode = "list", length = len())
         
         names(optionslist) <- input$files$name
         
         # Use a for loop to run through all the uploaded files ----
-        for(i in 1:nrow(input$files)) {
+        for(i in 1:len()) {
             
             # Create variables that will be used later ----
             divid <- paste0("optionid", i)
@@ -360,7 +366,7 @@ server <- function(session, input, output) {
     observeEvent(input$input.fileselector, {
         
         # Get all the div IDs for all generated options panels ----
-        optionids <- paste0("optionid", 1:nrow(input$files))
+        optionids <- paste0("optionid", 1:len())
         
         # Grab the name of the file selected ----
         fileselect <- which(input$files$name == input$input.fileselector)
@@ -383,11 +389,11 @@ server <- function(session, input, output) {
         
         req(input$files)
         
-        csvs <- vector(mode = "list", length = nrow(input$files))
+        csvs <- vector(mode = "list", length = len())
         names(csvs) <- input$files$name
         
         # For loop to run through all the uploaded files ----
-        for(i in 1:nrow(input$files)) {
+        for(i in 1:len()) {
             
             # Set up variables to control read_delim ----
             delim <- paste0('input$separator', i)
@@ -440,12 +446,12 @@ server <- function(session, input, output) {
         req(input$files)
         
         # Create an empty list to store tags in ----
-        idlist <- vector(mode = "list", length = nrow(input$files))
+        idlist <- vector(mode = "list", length = len())
         
         names(idlist) <- input$files$name
         
         # Use a for loop to run through all the uploaded files ----
-        for(i in 1:nrow(input$files)) {
+        for(i in 1:len()) {
             
             # Create variables that will be used later ----
             divid <- paste0("genedivid", i)
@@ -492,7 +498,7 @@ server <- function(session, input, output) {
     observeEvent(input$input.fileselector, {
         
         # Get all the div IDs for all generated options panels ----
-        genedivids <- paste0("genedivid", 1:nrow(input$files))
+        genedivids <- paste0("genedivid", 1:len())
         
         # Grab the name of the file selected ----
         fileselect <- which(input$files$name == input$input.fileselector)
@@ -514,14 +520,14 @@ server <- function(session, input, output) {
     genelists <- reactive({
         
         # Create a list of id variable names ----
-        genelistIDs <- paste0("input$geneID", 1:nrow(input$files))
+        genelistIDs <- paste0("input$geneID", 1:len())
         
         # Create the empty list ----
-        genelist <- vector(mode = "list", length = nrow(input$files))
+        genelist <- vector(mode = "list", length = len())
         names(genelist) <- input$files$name
         
         # For loop to run through each file ----
-        for (i in 1:nrow(input$files)) {
+        for (i in 1:len()) {
         
             # Convert strings of variable names to their input counterparts ----
             genelistIDs[i] <- eval(str2lang(genelistIDs[[i]]))
@@ -547,15 +553,18 @@ server <- function(session, input, output) {
         # Use plotVenn to find intersections in gene lists ----
         overlaplist <- plotVenn(genelists(), showPlot = FALSE)
         
-        # List the overlapping regions ----
-        listVennRegions(overlaplist, na.rm = FALSE)
+    })
+    
+    overlaplist <- reactive({
+        
+        listVennRegions(overlaps(), na.rm = FALSE)
         
     })
     
     # Print out a summary of overlaps/intersections ----
     output$overlapsummary <- renderTable({
         
-        overlap.list <- lapply(overlaps(), function (x) x[!is.na(x)])
+        overlap.list <- lapply(overlaplist(), function (x) x[!is.na(x)])
         
         listlength <- sapply(overlap.list, length)
         
@@ -575,7 +584,7 @@ server <- function(session, input, output) {
     # Print out the list of overlaps/intersections ----
     output$overlapprint <- renderPrint(
         
-        overlaps()
+        overlaplist()
         
         )
     
@@ -753,10 +762,10 @@ server <- function(session, input, output) {
     fun.venn <- function(){
         
         req(input$files)
-        
-        v <- plotVenn(genelists(), showPlot = FALSE)
-        
-        v2 <- showSVG(v, opacity = 0.2, borderWidth = 1, fontScale = 2)
+
+        v2 <- showSVG(overlaps(), opacity = 0.2, borderWidth = 1, fontScale = 2,
+                      # setColors = viridis(n = len()), begin = 0, end = 1)
+        )
         
         grid.draw(v2)
         
@@ -845,22 +854,18 @@ server <- function(session, input, output) {
     citations <- reactive({
         # Note: the citations will differ if you download and run this in R Studio yourself.
         # (It will include packages you have on your local machine.)  Restart your session
-        # before use or use the online version for accurate citations.
+        # before use for accurate app-specific citations.
         
         # Get actively loaded packages ----
         packageids <- (.packages())
         
         # Create an empty vector to be our list ----
-        packagecite <- vector(length = (length(packageids) - 6))
+        packagecite <- vector(length = (length(packageids)))
         
-        # For loop runs through each package and grabs the citation ---
-        for (i in 1:length(packagecite)) {
-            
-            packagecite[i] <- format(citation(packageids[i]), "html")
-        }
+        citationslist <- sapply(lapply(packageids, citation), format, "html")
         
-        # Alphabetize citations ----
-        packagecite <- sort(packagecite)
+        # Alphabetize citations and remove duplicates ----
+        packagecite <- sort(unique(citationslist))
         
         # Apply HTML() to render HTML properly ----
         packagecite <- lapply(packagecite, HTML)
