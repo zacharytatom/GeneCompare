@@ -19,7 +19,9 @@ ui <- fluidPage(
     useShinyjs(),
     
     # Navbar layout for the whole app ----
-    navbarPage("GeneCompare",
+    navbarPage(
+        div(style = "display:inline-bloack;", tagList(img(src = "logo_genecompare.png")),
+        "GeneCompare"),
                
                # File upload tab ----
                tabPanel("File Upload",
