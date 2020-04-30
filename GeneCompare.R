@@ -86,27 +86,53 @@ ui <- fluidPage(
                                 
                                 radioButtons(inputId = "comparisonchoice",
                                              label = "Comparison Type",
-                                             choices = c(Summary = "summary",
-                                                         Intersection = "intersection",
-                                                         Combination = "combination")),
+                                             choices = c("Primary Intersection" = "intersection",
+                                                         "Full Combination" = "combination",
+                                                         "Overlap Summary" = "summary",
+                                                         "All Overlaps" = "overlap")),
                                 
                                 downloadButton("overlaprdata",
                                                label = "Download .RData",
                                                style = "width:100%;"),
                                 
-                                div(id = "combinationside", tagList(
+                                div(id = "intersectionside", tagList(
                                     
                                     hr(),
                                     
-                                    radioButtons(inputId = "comparisonview",
+                                    radioButtons(inputId = "comparisonview.inter",
                                                  label = "Preview Mode",
                                                  choices = c(Head = "head",
                                                              All = "all"),
                                                  selected = "head"),
                                     
-                                    downloadButton("csvdl",
-                                                   label = "Download CSV",
-                                                   style = "width:100%;")
+                                    downloadButton("csvdl.inter",
+                                                   label = "Download Intersection CSV",
+                                                   style = "width:100%;"),
+                                    
+                                    br(),
+                                    br(),
+                                    
+                                    p(tags$i("The 'primary intersection' is the list of genes that appear in every list."))
+                                )),
+                                
+                                div(id = "combinationside", tagList(
+                                    
+                                    hr(),
+                                    
+                                    radioButtons(inputId = "comparisonview.comb",
+                                                 label = "Preview Mode",
+                                                 choices = c(Head = "head",
+                                                             All = "all"),
+                                                 selected = "head"),
+                                    
+                                    downloadButton("csvdl.comb",
+                                                   label = "Download Combination CSV",
+                                                   style = "width:100%;"),
+                                    
+                                    br(),
+                                    br(),
+                                    
+                                    p(tags$i("The 'full combination' is the full set of genes that appear in any of the lists uploaded, with duplicates removed."))
                                 ))
                                 
                             ),
@@ -117,18 +143,21 @@ ui <- fluidPage(
                                 
                                 hr(),
                                 
+                                div(id = "intersectdiv", tagList(
+                                    tableOutput("intersectionlist")
+                                )),
+                                
+                                div(id = "combinationdiv", tagList(
+                                    tableOutput("combinationlist")
+                                )),
+                                
                                 div(id = "summarydiv", tagList(
                                     tableOutput("overlapsummary")
                                 )),
                                 
                                 div(id = "overlapdiv", tagList(
                                     verbatimTextOutput("overlapprint")
-                                )),
-                                
-                                div(id = "combinationdiv", tagList(
-                                    tableOutput("combinationlist")
                                 ))
-                                
                             )
                             
                         )
@@ -540,7 +569,6 @@ server <- function(session, input, output) {
             # Copy only the relevant column to the list ----
             genelist[i] <- data[genelistIDs[i]]
         
-        
         }
         
         return(genelist)
@@ -553,7 +581,7 @@ server <- function(session, input, output) {
         req(input$files)
         
         # Use plotVenn to find intersections in gene lists ----
-        overlaplist <- plotVenn(genelists(), showPlot = FALSE)
+        overlaplist <- plotVenn(genelists(), showPlot = FALSE, nCycles = 1)
         
     })
     
@@ -590,6 +618,28 @@ server <- function(session, input, output) {
         
         )
     
+    # Generate only the primary intersection (i.e. all lists) ----
+    pintersection <- reactive({
+        
+        # Require files be uploaded ----
+        req(input$files)
+        
+        genecomp <- reduce(genelists(), intersect)
+        
+    })
+    
+    # Render the primary intersection ----
+    output$intersectionlist <- renderTable(
+        
+        # If/else statements for view mode ----
+        if (input$comparisonview.inter == "head") {
+            return(head(pintersection()))
+        } else {
+            return(pintersection())
+        }
+        
+    )
+    
     # Generate the combined list ----
     combination <- reactive({
         
@@ -598,19 +648,17 @@ server <- function(session, input, output) {
         
         genecomp <- reduce(genelists(), union)
         
-        # If/else statements for view mode ----
-        if (input$comparisonview == "head") {
-            return(head(genecomp))
-        } else {
-            return(genecomp)
-        }
-        
     })
     
     # Render the comparison ----
     output$combinationlist <- renderTable(
         
-        combination()
+        # If/else statements for view mode ----
+        if (input$comparisonview.inter == "head") {
+            return(head(combination()))
+        } else {
+            return(combination())
+        }
         
     )
     
@@ -619,11 +667,16 @@ server <- function(session, input, output) {
         
         toggle(id = "summarydiv", condition = input$comparisonchoice == "summary")
         
-        toggle(id = "overlapdiv", condition = input$comparisonchoice == "intersection")
+        toggle(id = "overlapdiv", condition = input$comparisonchoice == "overlap")
         
         toggle(id = "combinationdiv", condition = input$comparisonchoice == "combination")
         
         toggle(id = "combinationside", condition = input$comparisonchoice == "combination")
+        
+        toggle(id = "intersectdiv", condition = input$comparisonchoice == "intersection")
+        
+        toggle(id = "intersectionside", condition = input$comparisonchoice == "intersection")
+        
         
     })
     
@@ -643,14 +696,30 @@ server <- function(session, input, output) {
     )
     
     # Create a download handler for the comparison ----
-    output$csvdl <- downloadHandler(
+    output$csvdl.inter <- downloadHandler(
+        
+        filename = function(){
+            paste0(Sys.Date(), "_intersection", ".csv")
+        },
+        
+        content = function(file){
+            write.csv(pintersection(), 
+                      file,
+                      quote = FALSE,
+                      row.names = FALSE)
+        }
+        
+    )
+    
+    # Create a download handler for the comparison ----
+    output$csvdl.comb <- downloadHandler(
         
         filename = function(){
             paste0(Sys.Date(), "_combination", ".csv")
         },
         
         content = function(file){
-            write.csv(comparison(), 
+            write.csv(combination(), 
                       file,
                       quote = FALSE,
                       row.names = FALSE)

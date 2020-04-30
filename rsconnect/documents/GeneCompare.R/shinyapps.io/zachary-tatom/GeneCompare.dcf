@@ -5,8 +5,8 @@ account: zachary-tatom
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2121814
-bundleId: 3077059
+bundleId: 3086484
 url: https://zachary-tatom.shinyapps.io/GeneCompare/
-when: 1588083958.98935
+when: 1588261895.66851
 asMultiple: FALSE
 asStatic: FALSE
