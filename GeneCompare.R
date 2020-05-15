@@ -21,7 +21,8 @@ ui <- fluidPage(
     # Navbar layout for the whole app ----
     navbarPage(
         div(style = "display:inline-bloack;", tagList(img(src = "logo_genecompare.png")),
-        "GeneCompare"),
+            "GeneCompare",
+            titlePanel(title = "", windowTitle = "GeneCompare")),
                
                # File upload tab ----
                tabPanel("File Upload",
@@ -733,6 +734,8 @@ server <- function(session, input, output) {
         req(input$files)
         
         upset(fromList(genelists()),
+              nsets = len(),
+              nintersects = length(overlaplist()),
               order.by = "freq",
               point.size = 5,
               line.size = 1.3,
